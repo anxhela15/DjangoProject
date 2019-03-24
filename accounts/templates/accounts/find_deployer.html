@@ -1,0 +1,21 @@
+{% extends 'accounts/base.html' %}
+
+{% block content %}
+<p>
+	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+Please select the subject you are interested in:
+</p>
+<form action="subject/">
+  <select name="subject">
+	{% for project in projects %}
+  <option value="{{project.subject}}">{{project.subject}}</option>
+	{% endfor %}
+  </select>
+  <br><br>
+  <input type="submit">
+</form>
+
+			
+
+{% endblock %}

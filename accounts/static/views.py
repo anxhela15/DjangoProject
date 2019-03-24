@@ -1,0 +1,620 @@
+from django.shortcuts import render,redirect, get_object_or_404,Http404
+from django.views.generic import CreateView
+from .models import User, Project, Group, Deployment,Profile,File,Suggestion, Task
+from django.contrib.auth import login, authenticate
+from django.contrib.auth.forms import UserCreationForm
+from .forms import SignUpForm, ChoiceForm
+from django.contrib.auth.models import Permission, User
+from django.contrib.contenttypes.models import ContentType
+from django.http import HttpResponse
+from django.contrib.auth.admin import UserAdmin
+from django.views.generic.edit import FormView
+from django.views.generic.edit import CreateView
+from .forms import CreateProject,CreateFile,CreateSuggestion, CreateTask
+from django.views.generic.edit import DeleteView
+from django.urls import reverse_lazy
+from django.db.models.signals import post_save
+from notifications.signals import notify
+import copy
+from django.contrib.auth import get_user_model
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.views.generic import View
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from chartit import DataPool, Chart
+from django.shortcuts import render_to_response
+from django.utils import timezone
+import json
+from django.core.serializers.json import DjangoJSONEncoder
+
+# Create your views here.
+def index(request):
+	return render(request, 'accounts/index.html')
+
+def is_member(user):
+    return user.groups.filter(name='Deployers').exists()
+    
+def files(request):
+	return render(request,'accounts/files.html')
+
+def home(request):
+    projects_list = Project.objects.all()
+    context = {'projects_list': projects_list}
+    if request.user.is_authenticated:
+        return render(request, 'accounts/home.html', context)
+    else:
+        return redirect('/profiles/login/')
+
+def signup(request):
+    return render(request, 'signup.html')
+
+def details(request, project_id):
+    project = Project.objects.get(pk=project_id)
+    taskslist = []
+    initdate = []
+    finishdate = []
+    deployer = []
+    for task in project.task_set.all():
+        if task.finished == True:
+            taskslist.append(task.task_name + "- COMPLTED")
+        else:
+            taskslist.append(task.task_name + "- NOT COMPLTED")
+        initdate.append(task.creation_date)
+        finishdate.append(task.deadline)
+        deployer.append(task.project.deployer.username)
+    json1 = json.dumps(list(taskslist), cls=DjangoJSONEncoder)
+    jsoninit = json.dumps(list(initdate), cls=DjangoJSONEncoder)
+    jsonfinish = json.dumps(list(finishdate), cls=DjangoJSONEncoder)
+    jsondep = json.dumps(list(deployer), cls=DjangoJSONEncoder)
+    try: 
+        workers = project.workers.all()
+    except Project.DoesNotExist:
+        raise Http404("Project does not exist")
+    if request.user.is_authenticated:
+        return render(request, 'accounts/details.html', {'project': project, 'workers':workers, 'json1':json1, 'jsondep':jsondep ,'jsoninit':jsoninit, 'jsonfinish':jsonfinish, 'project':project, 'initdate':initdate, 'finishdate':finishdate, 'taskslist':taskslist})
+    else:
+        return redirect('/profiles/login/')    
+
+def files(request, file_id, project_id):
+    project = Project.objects.get(pk=project_id)    
+    try:
+        files = File.objects.get(pk=file_id)
+        f = open('%s' %files.file, 'r')
+        content = f.read()
+        f.close()
+    except File.DoesNotExist:
+        raise Http404("File does not exist")
+    if request.user.is_authenticated:
+        return render(request, 'accounts/files.html', {'files': files,'project':project,'content':content})
+    else:
+        return redirect('/profiles/login/')    
+    
+
+def v_signup(request):
+    if request.method == 'POST':
+        form = SignUpForm(request.POST)
+        if form.is_valid():
+            form.save()
+            username = form.cleaned_data.get('username')
+            raw_password = form.cleaned_data.get('password1')
+            user = authenticate(username=username, password=raw_password)
+            content_type = ContentType.objects.get_for_model(Project)            
+            perm1 = Permission.objects.get(
+            codename='view_project',
+            content_type=content_type,
+            )
+            profile = user.profile
+            profile.username = user.username
+            profile.save()
+            user.user_permissions.add(perm1)
+            login(request, user)
+            return redirect('/home/')
+    else:
+        form = SignUpForm()
+    return render(request, 'viewersignup.html', {'form': form})
+
+
+def base(request):
+    return render(request, 'accounts/base.html')
+
+def profile_deployments(request, project_id):
+    user = request.user
+    project = Project.objects.get(pk=project_id)
+    profile = Profile.objects.get(user_id=user.id)
+    profile.username = user.username
+    if (is_member(user)) and (user==project.deployer) and (project.deployed==False):
+        if profile:
+            profile.no_deployments +=1
+            project.deployed = True
+        profile.save()
+        project.save()
+        return render(request, 'accounts/profdep.html', {'user':user,'project':project,'profile':profile})
+    else:
+        if (project.deployer != user):
+            return HttpResponse("Permission denied!")
+        elif (project.deployed==True):
+            return HttpResponse("This Project is already marked as deployed!")        
+        return HttpResponse("Pleas Login as a deployer!")
+
+def successful(request):
+    lst = []
+    lstviewer = []
+    result=[]
+    ranking = []
+    viewer_ranking = []
+    deployments=Profile.objects.all()
+    for profile in deployments:
+        if is_member(profile.user):
+            lst.append((profile.no_deployments,profile.user.username))
+        else:
+            if not(profile.user.is_superuser):
+                lstviewer.append((profile.points,profile.user.username))
+    succ = max(lst)
+    ranking1 = sorted(lst,reverse=True)
+    for i in ranking1:
+        ranking.append(i[1])
+    viewer_ranking1 = sorted(lstviewer, reverse=True)
+    for j in viewer_ranking1:
+        viewer_ranking.append(j[1])
+    if request.user.is_authenticated:
+        return render(request, 'accounts/successful.html', {'deployments':deployments, 'lst':lst, 'succ':succ, 'result':result,'profile':profile,'ranking':ranking, 'viewer_ranking':viewer_ranking})
+    else:
+        return redirect('/profiles/login/')    
+
+
+
+def create_project(request):
+   if request.method == "POST":
+        form = CreateProject(request.POST)
+        if form.is_valid():
+            user = request.user
+            if (is_member(user)):
+                project= form.save(commit=False)
+                project.deployer = request.user
+                project.save()
+                return redirect('/home/', pk=project.id)
+            else:
+                return HttpResponse("Permission denied!")
+   else:
+        form = CreateProject()
+        return render(request, 'accounts/create_project.html', {'form': form})
+
+
+
+def edit_project(request,project_id):
+    project = get_object_or_404(Project, pk=project_id)
+    if request.method == "POST":
+        form = CreateProject(request.POST, instance=project)
+        user = request.user
+        if (is_member(user)) and (user==project.deployer):
+            if form.is_valid():
+                project = form.save(commit=False)
+                project.deployer = request.user
+                project.save()
+                return redirect('/home/', pk=project.pk)
+        else:
+            return HttpResponse("Permission denied!")
+    else:
+        form = CreateProject(instance=project)
+    return render(request, 'accounts/edit_project.html', {'form': form})
+
+
+def delete_project(request,project_id):
+    project = get_object_or_404(Project, pk=project_id)
+    user = request.user
+    if (is_member(user)) and (user==project.deployer):
+        form = CreateProject(request.POST, instance=project)
+        project.delete()
+        return render(request, 'accounts/deleted.html', {'form': form})
+    else:
+        return HttpResponse("Permission denied!")
+
+def deletef(request,file_id,project_id):
+    project = Project.objects.get(pk=project_id)
+    file = File.objects.get(pk=file_id)    
+    return render(request,'accounts/deletef.html',{'file': file,'project':project})
+
+def deletep(request,project_id):
+    project = Project.objects.get(pk=project_id)
+    return render(request,'accounts/deletep.html',{'project':project})
+
+def delete_file(request,file_id,project_id):
+    project = get_object_or_404(Project,pk=project_id)
+    user = request.user
+    if (is_member(user)) and (user==project.deployer):
+        file = get_object_or_404(File, pk=file_id)
+        form = CreateFile(request.POST, instance=file)
+        file.delete()    
+        return render(request, 'accounts/deleted.html', {'form': form,'project':project})
+    else:
+        return HttpResponse("Permission denied!")
+
+def create_file(request,project_id):
+    proje = Project.objects.get(pk=project_id)
+    if request.method == "POST":
+        form = CreateFile(request.POST, request.FILES)
+        if form.is_valid():
+            user = request.user
+            if (is_member(user)) and (user==proje.deployer):
+                file= form.save(commit=False)
+                file.project = proje
+                file.save()
+                return redirect('/home/%d' %project_id, pk=file.id)
+            else:
+                return HttpResponse("Permission denied!")
+    else:
+        form = CreateFile()
+    return render(request, 'accounts/create_file.html', {'form': form,'proje':proje})   
+
+def create_suggestion(request,project_id,file_id):
+    project = Project.objects.get(pk=project_id)
+    file = File.objects.get(pk=file_id)
+    user = request.user
+    profile = Profile.objects.get(user_id=user.id)    
+    if request.method == "POST":
+        form = CreateSuggestion(request.POST, request.FILES)
+        if form.is_valid():
+            sfile= form.save(commit=False)
+            sfile.author=user
+            sfile.file = file
+            sfile.save()
+            project.new_suggestion=True
+            project.save()
+            file.new_suggestion=True
+            file.save()
+            profile.points +=1
+            profile.save()
+            post_save.connect(my_handler, sender=user)
+            notify.send(project.deployer, recipient=project.deployer, verb='you have one new suggestion on project %s' %project.project_name)
+            return redirect('/home/%d' %project_id, pk=sfile.id)
+    else:
+        form = CreateSuggestion()
+    return render(request, 'accounts/create_suggestion.html', {'form': form,'project':project,'file':file})   
+
+def view_suggestions(request,project_id,file_id):
+    project = Project.objects.get(pk=project_id)
+    try:
+        file = File.objects.get(pk=file_id)
+        if request.user == project.deployer:
+            file.new_suggestion=False
+            file.save()
+    except File.DoesNotExist:
+        raise Http404("File does not exist")
+    return render(request, 'accounts/view_suggestions.html', {'project': project,'file':file})
+
+def suggestions(request,project_id,file_id,suggestion_id):
+    project = Project.objects.get(pk=project_id)
+    file = File.objects.get(pk=file_id)  
+    try:
+        suggestions = Suggestion.objects.get(pk=suggestion_id)
+        f = open('%s' %suggestions.sfile, 'r')
+        content = f.read()
+        f.close()
+    except Suggestion.DoesNotExist:
+        raise Http404("File does not exist")
+    return render(request, 'accounts/suggestions.html', {'file': file,'project':project,'suggestions':suggestions,'content':content})
+
+def confirm_suggestion(request,project_id,file_id,suggestion_id):
+    project = Project.objects.get(pk=project_id)
+    file = File.objects.get(pk=file_id)  
+    try:
+        suggestions = Suggestion.objects.get(pk=suggestion_id)
+    except Suggestion.DoesNotExist:
+        raise Http404("File does not exist")
+    if request.user == project.deployer:
+        if suggestions.confirmed == True:
+            return HttpResponse("This suggestion is already confirmed!")
+        else:
+            suggestions.confirmed = True
+            profile = suggestions.author.profile
+            profile.points +=1
+            file.file = suggestions.sfile
+            file.save()
+            profile.save()
+            suggestions.save()
+            return render(request, 'accounts/confirm_suggestion.html',{'file': file,'project':project,'suggestions':suggestions})
+    else:
+        return HttpResponse("Permission denied!")
+
+def myprojects(request):
+    user = request.user
+    if request.user.is_authenticated:
+        return render(request, 'accounts/myprojects.html', {'user':user})
+    else:
+        return redirect('/profiles/login/')   
+
+def accepting_sugg(request):
+    projects = Project.objects.all()
+    if request.user.is_authenticated:
+        return render(request, 'accounts/accepting_sugg.html', {'projects':projects})
+    else:
+        return redirect('/profiles/login/')  
+
+
+def my_handler(sender, instance, created, **kwargs):
+    notify.send(instance, verb='was saved')
+
+def notifications(request):
+    projects = Project.objects.filter(new_suggestion=True)
+    task = Project.objects.filter(new_task=True)
+    user = request.user
+    if is_member(user):
+        for project in projects:
+            project.new_suggestion=False
+            project.save()
+        for i in task:
+            i.new_task= False
+            i.save()
+    user.notifications.mark_all_as_read()
+    return render(request, 'accounts/notifications.html', {'projects':projects, 'tasks':tasks, 'task':task}) 
+  
+
+def profiles(request, name):
+    user = User.objects.get(username=name)
+    tasks = Task.objects.all()
+    taskslist = []
+    for task in tasks:
+        deps = task.deployers.all()
+        if user.profile in deps:
+            taskslist.append(task)
+    return render(request, 'accounts/profiles.html', {'user':user, 'taskslist':taskslist})
+
+def confirm_request(request,name):
+    user = User.objects.get(username=name)
+    post_save.connect(my_handler, sender=user)
+    notify.send(user, recipient=user, verb='you have one new request')
+    user.profile.notification = True
+    user.save()
+    return render(request, 'accounts/confirm_request.html', {'user':user})
+
+def request(request, name):
+    user = User.objects.get(username=name)
+    return render(request, 'accounts/request.html', {'user':user})
+
+
+def deployer_confirm(request):
+    user = request.user
+    my_group = Group.objects.get(name='Deployers') 
+    my_group.user_set.add(user) 
+    return render(request,'accounts/deployer.html', {'user':user})
+
+def find_deployer(request):
+    users = User.objects.all()
+    projects = Project.objects.all()
+    return render(request, 'accounts/find_deployer.html', {'users':users,'projects':projects})  
+      
+def subject(request):
+    return render(request, 'accounts/subject.html', {'subject':subject})
+
+def update(request, project_id):
+    project = Project.objects.get(pk=project_id)
+    vers = []
+    lst = Project.objects.filter(project_name=project.project_name)
+    for i in lst:
+        vers.append(i.version)
+    version = max(vers)
+    if project.updated == False and project.deployed == True:
+        files = project.file_set.all()
+        project1 = Project()
+        project1.project_name = project.project_name
+        project1.deployer = project.deployer
+        project1.version = version + 1
+        lst = []
+        project1.save()
+        for i in files:
+            j = copy.deepcopy(i)
+            lst.append(j)
+        for file in lst:
+            project1.file_set.create(file_name=file.file_name,file=file.file)
+            project1.save()
+    else:
+        return HttpResponse("This project is not finished or is already updated!")
+    project.updated = True
+    project.save()
+    return render(request, 'accounts/update.html', {'project1':project1, 'lst':lst})
+
+def history(request, project_id):
+    project = Project.objects.get(pk=project_id)
+    return render(request, 'accounts/history.html', {'project':project})
+
+def goback(request,project_id):
+    project = Project.objects.get(pk=project_id)
+    project1 = Project.objects.get(project_name=project.project_name, updated=False)
+    project.updated=False
+    project1.updated=True
+    project1.save()
+    project.save()
+    return render(request, 'accounts/goback.html', {'project':project})
+
+def graph(request):
+    #Step 1: Create a DataPool with the data we want to retrieve.
+    data = \
+        DataPool(
+           series=
+            [{'options': {
+               'source': Profile.objects.all()},
+              'terms': [
+                'username',
+                'no_deployments',
+                'tasks', 
+                'points']}
+             ])
+
+    #Step 2: Create the Chart object
+    cht = Chart(
+            datasource = data,
+            series_options =
+              [{'options':{
+                  'type': 'line',
+                  'stacking': False},
+                'terms':{
+                  'username': [
+                    'no_deployments', 
+                    'tasks',
+                    'points']
+                  }}],
+            chart_options =
+              {'title': {
+                   'text': 'Deployments data'},
+               'xAxis': {
+                    'title': {
+                       'text': 'users'}}})
+    #Step 3: Send the chart object to the template.
+    return render(request, 'accounts/graph.html', {'graph': cht})
+
+def create_task(request, project_id):
+    project = Project.objects.get(pk=project_id)
+    user = request.user
+    if(user.is_superuser or user == project.deployer):
+        if request.method == "POST":
+            form = CreateTask(request.POST)
+            if form.is_valid():
+                task= form.save(commit=False)
+                task.project = project
+                task.creation_date = timezone.now()
+                task.save()
+                form.save_m2m()
+                task.deployers.add(project.deployer.profile)
+                deps = task.deployers.all()
+                for i in deps:
+                    dep = User.objects.get(username=i.username)
+                    post_save.connect(my_handler, sender=user)
+                    notify.send(dep, recipient=dep, verb='you have new tasks to complete %s' %project.project_name)
+                    dep = User()
+                return redirect('/home/%d' %project_id)
+        else:
+            form = CreateTask()
+        project.new_task = True
+        project.save()
+    return render(request, 'accounts/tasks.html', {'form':form})
+
+def tasks(request, project_id):
+    project = Project.objects.get(pk=project_id)
+    taskslist = project.task_set.all()
+    return render(request, 'accounts/taskslist.html', {'taskslist':taskslist})
+
+def taskdetails(request, project_id, task_id):
+    project = Project.objects.get(pk=project_id)
+    task = Task.objects.get(pk=task_id)
+    return render(request, 'accounts/taskdetails.html', {'task':task, 'project':project})
+
+def alltasks(request, project_id):
+    project = Project.objects.get(pk=project_id)
+    taskslist = []
+    initdate = []
+    finishdate = []
+    deployer = []
+    for task in project.task_set.all():
+        if task.finished == True:
+            taskslist.append(task.task_name + "- COMPLTED")
+        else:
+            taskslist.append(task.task_name + "- NOT COMPLTED")
+        initdate.append(task.creation_date)
+        finishdate.append(task.deadline)
+        deployer.append(task.project.deployer.username)
+    json1 = json.dumps(list(taskslist), cls=DjangoJSONEncoder)
+    jsoninit = json.dumps(list(initdate), cls=DjangoJSONEncoder)
+    jsonfinish = json.dumps(list(finishdate), cls=DjangoJSONEncoder)
+    jsondep = json.dumps(list(deployer), cls=DjangoJSONEncoder)
+    return render(request, 'accounts/alltasks.html', {'json1':json1, 'jsondep':jsondep ,'jsoninit':jsoninit, 'jsonfinish':jsonfinish, 'project':project, 'initdate':initdate, 'finishdate':finishdate})
+
+def finish_task(request, project_id, task_id):
+    project = Project.objects.get(pk=project_id)
+    task = Task.objects.get(pk=task_id)
+    if (request.user == project.deployer):
+        task.finished=True
+        task.finishtime = timezone.now()
+        task.save()
+        user = request.user.profile
+        user.tasks += 1
+        user.save()
+    return render(request, 'accounts/finishtask.html', {})
+
+def maintasks(request):
+    taskslist = []
+    initdate = []
+    finishdate = []
+    deployer = []
+    workers = ''
+    taskslist1 = Task.objects.all()
+    for task in taskslist1:
+        if task.finished == True:
+            taskslist.append(task.task_name + "- COMPLTED")
+        else:
+            taskslist.append(task.task_name + "- NOT COMPLTED")
+        initdate.append(task.creation_date)
+        finishdate.append(task.deadline)
+        work = task.deployers.all()
+        for i in work:
+            workers +=  i.user.username + ' , '
+        deployer.append(workers)
+        workers = ''
+    json1 = json.dumps(list(taskslist), cls=DjangoJSONEncoder)
+    jsoninit = json.dumps(list(initdate), cls=DjangoJSONEncoder)
+    jsonfinish = json.dumps(list(finishdate), cls=DjangoJSONEncoder)
+    jsondep = json.dumps(list(deployer), cls=DjangoJSONEncoder)
+    return render(request, 'accounts/maintasks.html', {'json1':json1, 'jsondep':jsondep ,'jsoninit':jsoninit, 'jsonfinish':jsonfinish, 'initdate':initdate, 'finishdate':finishdate})
+
+def add_deployers(request, project_id):
+    profiles = User.objects.all()
+    project = Project.objects.get(pk=project_id)
+    workers = project.workers.all()    
+    return render(request, 'accounts/add_deployers.html', {'profiles':profiles, 'workers':workers})
+
+def add(request, project_id, name):
+    profiles = User.objects.all()
+    project = Project.objects.get(pk=project_id)
+    deployer = User.objects.get(username=name)
+    project.workers.add(deployer.profile)
+    return render(request, 'accounts/add.html', {'profiles':profiles, 'deployer':deployer})
+
+def tasks1(request):
+    taskslist = [[]]
+    initdate = [[]]
+    finishdate = [[]]
+    deployer = []
+    taskslst = []
+    initdt = []
+    finishdt = []
+    deployerslist = Profile.objects.all()
+    tasks = Task.objects.all()
+    workers = ''
+    for i in deployerslist:
+        deployer.append(i.username)
+        for task in tasks:
+            deps = task.deployers.all()
+            if i in deps:
+                taskslst.append(task.task_name)
+                initdt.append(task.creation_date)
+                finishdt.append(task.deadline)
+        taskslist.append(taskslst)
+        initdate.append(initdt)
+        finishdate.append(finishdt)
+        taskslst=[]
+        initdt=[]
+        finishdt=[]
+    json1 = json.dumps(list(taskslist), cls=DjangoJSONEncoder)
+    jsoninit = json.dumps(list(initdate), cls=DjangoJSONEncoder)
+    jsonfinish = json.dumps(list(finishdate), cls=DjangoJSONEncoder)
+    jsondep = json.dumps(list(deployer), cls=DjangoJSONEncoder)
+    return render(request, 'accounts/task1.html', {'json1':json1, 'jsondep':jsondep ,'jsoninit':jsoninit, 'jsonfinish':jsonfinish, 'initdate':initdate, 'finishdate':finishdate})
+
+def payment(request):
+    deployers = Profile.objects.all()
+    tasks = Task.objects.all()
+    task_lst=[]
+    day = 600
+    for dep in deployers:
+        if dep.payment_calculated == False:
+            for task in tasks:
+                task_deps = task.deployers.all()
+                if dep in task_deps:
+                    task_lst.append(task)
+                for i in task_lst:
+                    diff = i.deadline-i.creation_date
+                    dep.payment += diff.days * day
+                    diff=0
+        dep.payment_calculated=True
+        dep.save()
+    return render(request, 'accounts/payment.html', {'deployers':deployers})

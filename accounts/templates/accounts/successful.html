@@ -1,0 +1,37 @@
+{% extends 'accounts/base.html'%}
+
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+<p>
+<div class="panel panel-warning">
+  <div class="panel-heading">
+    <h3 class="panel-title">Deployments</h3>
+  </div>
+  <div class="panel-body">
+      {% for i in ranking %}    
+      <div align="center "class="list-group">
+
+  <a href="{{i}}/" class="list-group-item list-group-item-action">{{i}}
+  </a></div>
+      {%endfor%}
+  </div>
+</p>
+<p>   <h3 class="panel-title">Suggestions</h3>
+  </div>
+  <div class="panel-body">
+      {% for j in viewer_ranking %}    
+      <div align="center "class="list-group">
+
+  <a href="{{j}}/" class="list-group-item list-group-item-action">{{j}}
+  </a></div>
+      {%endfor%}
+  </div></p>
+</ul>
+</p>
+
+{% endblock %}
+

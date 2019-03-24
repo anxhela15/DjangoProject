@@ -1,0 +1,286 @@
+{% load static %}
+{% load notifications_tags %}
+{% load app_filters %}
+
+<html>
+    <head>
+      <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+            <script src="{% static 'notifications/notify.js' %}" type="text/javascript"></script>
+
+      <link rel="stylesheet" type="text/css" href="{% static 'accounts/bootstrap.css' %}">
+      <link rel="stylesheet" type="text/css" href="{% static 'accounts/bootstrap.min.css' %}">
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarColor01" aria-controls="navbarColor01" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+ 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <div class="collapse navbar-collapse" id="navbarColor01">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item active">
+        <a class="nav-link" href="/home/">Home <span class="sr-only">(current)</span></a>
+      </li>
+       <li class="nav-item">
+        <a class="nav-link" href="/profiles/">Profiles</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/home/graph/">Statistics</a>
+      </li>
+          <li class="nav-item">
+        <a class="nav-link" href="/home/tasks/">Tasks</a>
+      </li>
+              <li class="nav-item">
+        <a class="nav-link" href="/jobs/">Jobs</a>
+      </li>
+        <li class="nav-item">
+        <a class="nav-link" href="/profiles/logout/">Log out</a>
+      </li>
+
+    
+    
+    </ul>
+<button class="w3-button" onclick="mynewFunction()"><i class="fa fa-bell"></i>  <span class="badge">{% live_notify_badge %}</span></a></li>
+</button>
+  
+<div id="snackbar">
+     <a href="/notifications/" class="btn btn-primary"> Mark all as read
+        </a> 
+  {% if request.user|has_group:"Deployers"%}
+  {% if apps %}
+  {% for app in apps %}
+   <a href="/{{app.task.id}}/" ><p> You have a new application </p> </a>
+ <div class="btn-group float-right mt-2">
+
+   {% endfor %}
+  {% endif %}
+{% if t %}
+
+    {% for i in t %}
+  <a href="/home/{{i.project.id}}/tasks/{{i.id}}/" ><p> You have a new task to complete </p>
+ <div class="btn-group float-right mt-2">
+
+</div></a>
+    {% endfor %}
+    {% endif %}
+    <p></p>
+    {% if s %}
+{% for sugg in s %}
+       <a href="/home/{{sugg.file.project.id}}/{{sugg.file.id}}/viewsuggestions/{{sugg.id}}/" ><p> You have a new suggestion</p>
+ <div class="btn-group float-right mt-2">
+
+</div></a>
+{% endfor %}
+{% endif %}
+{% else %}
+{% if user.profile.notification == True %}
+  <form action="" method="post">
+    <p>You have a deployer request! Would you like to confirm it?</p>
+       <a href="deployer/" class="btn btn-primary"> Confirm
+        </a>       
+        <button onclick="window.history.back();" class="btn btn-default" type="button">Cancel</button>
+</form>
+{% endif %}
+{% endif %}</div>
+      <ul class="nav nav-pills">
+
+ 
+
+
+  </div>
+</nav>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+#snackbar {
+    visibility: hidden;
+    min-width: 250px;
+    margin-left: -125px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 2px;
+    padding: 16px;
+    position: fixed;
+    z-index: 1;
+    left: 50%;
+    bottom: 30px;
+    font-size: 17px;
+}
+
+#snackbar.show {
+    visibility: visible;
+    -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+
+@-webkit-keyframes fadein {
+    from {bottom: 0; opacity: 0;} 
+    to {bottom: 30px; opacity: 1;}
+}
+
+@keyframes fadein {
+    from {bottom: 0; opacity: 0;}
+    to {bottom: 30px; opacity: 1;}
+}
+
+@-webkit-keyframes fadeout {
+    from {bottom: 30px; opacity: 1;} 
+    to {bottom: 0; opacity: 0;}
+}
+
+@keyframes fadeout {
+    from {bottom: 30px; opacity: 1;}
+    to {bottom: 0; opacity: 0;}
+}
+</style>
+<script>
+function mynewFunction() {
+    var x = document.getElementById("snackbar");
+    x.className = "show";
+    setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+
+}
+</script>
+
+<!DOCTYPE html>
+<html>
+<title>Details</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+html,body,h1,h2,h3,h4,h5 {font-family: "Raleway", sans-serif}
+</style>
+<body class="w3-light-grey">
+
+
+
+<!-- Sidebar/menu -->
+<nav class="w3-sidebar w3-collapse w3-white w3-animate-left" style="z-index:3;width:300px;" id="mySidebar"><br>
+  <div class="w3-container w3-row">
+    <div class="w3-col s4">
+ <p class="w3-center"><img src="https://www.svgimages.com/svg-image/s5/man-passportsize-silhouette-icon-256x256.png"" class="w3-circle" style="height:106px;width:106px" alt="Avatar"></p>    </div>
+    <div class="w3-col s8 w3-bar">
+      <span>Welcome, <a href="/successful/{{request.user.username}}/"><strong>{{request.user}}</strong></a></span><br>
+      <a href="/mytasks/" class="w3-bar-item w3-button"><i class="fa fa-tasks"></i></a>
+      <a href="/successful/{{request.user.username}}/" class="w3-bar-item w3-button"><i class="fa fa-user"></i></a>
+      <a href="/home/" class="w3-bar-item w3-button"><i class="fa fa-folder"></i></a>
+    </div>
+
+  </div>
+    <p><i class="fa fa-user fa-fw w3-margin-right w3-large w3-text-teal"></i>{{user.first_name}} {{user.last_name}}</p>
+          <p><i class="fa fa-envelope fa-fw w3-margin-right w3-large w3-text-teal"></i>{{user.email}}</p>
+    
+  <hr>
+  <div class="w3-container"   >
+  </div>
+    <div class="w3-bar-block">
+            <br>  
+      <!-- Accordion -->
+
+          <hr>
+
+        <h2 class="w3-text-grey w3-padding-16"><i class="fa fa-credit-card fa-fw w3-margin-right w3-xxlarge w3-text-teal"></i>Payment</h2>
+        <div class="w3-container">
+
+          <h6 class="w3-text-teal"><i class="fa fa-money fa-fw w3-margin-right"></i>Amount to be paid: {{user.profile.payment}}$</h6>
+
+        </div>
+        <a class="w3-bar-item w3-button w3-padding " data-toggle="tab" href="payment/" style="text-decoration: none"><i class="fa fa-check"></i> Pay</a>
+             {% if request.user.is_superuser %}
+          {%if user|has_group:"Deployers" %}
+              {% else %}
+              <a class="w3-bar-plus w3-button w3-padding " data-toggle="tab" href="request/" style="text-decoration: none"><i class="fa fa-plus"></i> Add as a deployer </a>
+             {% endif %}</a>
+             {% endif %}
+       
+    <p></p>
+
+</p>
+
+    
+  </div>
+</nav>
+
+
+<!-- Overlay effect when opening sidebar on small screens -->
+<div class="w3-overlay w3-hide-large w3-animate-opacity" onclick="w3_close()" style="cursor:pointer" title="close side menu" id="myOverlay"></div>
+
+<!-- !PAGE CONTENT! -->
+<div class="w3-main" style="margin-left:300px;margin-top:10px;">
+
+ <div class="w3-container">
+<h2 class="w3-text-grey w3-padding-16"><i class="fa fa-user fa-fw w3-margin-right w3-xxlarge w3-text-teal"></i>{{user}}</h2>
+  
+             <div class="w3-container">
+            <h5 class="w3-opacity"><b>Working tasks</b></h5>
+            {% for i in taskslist %}
+              <h6 class="w3-text-teal"><i class="fa fa-tasks fa-fw w3-margin-right"></i><a href="/home/{{i.project.id}}/tasks/{{i.id}}/"> {{i}}: {{i.creation_date}} - {{i.deadline}}</a> </h6>
+                  {% endfor %}
+                  <hr>
+                </div>
+       
+        
+        <div class="w3-container">
+          <h5 class="w3-opacity"><b>Achievements</b></h5>
+          <h6 class="w3-text-teal"><i class="fa fa-trophy fa-fw w3-margin-right"></i>Finished Tasks: {{user.profile.tasks}}</h6>
+            <h6 class="w3-text-teal"><i class="fa fa-trophy fa-fw w3-margin-right"></i>Deployments: {{user.profile.no_deployments}}</h6>
+                <h6 class="w3-text-teal"><i class="fa fa-trophy fa-fw w3-margin-right"></i>Suggestions: {{user.profile.points}}</h6>
+       
+          <hr>
+        </div>
+</div>
+ 
+<script>
+// Accordion
+function myFunction(id) {
+    var x = document.getElementById(id);
+    if (x.className.indexOf("w3-show") == -1) {
+        x.className += " w3-show";
+        x.previousElementSibling.className += " w3-theme-d1";
+    } else { 
+        x.className = x.className.replace("w3-show", "");
+        x.previousElementSibling.className = 
+        x.previousElementSibling.className.replace(" w3-theme-d1", "");
+    }
+}
+
+// Used to toggle the menu on smaller screens when clicking on the menu button
+function openNav() {
+    var x = document.getElementById("navDemo");
+    if (x.className.indexOf("w3-show") == -1) {
+        x.className += " w3-show";
+    } else { 
+        x.className = x.className.replace(" w3-show", "");
+    }
+}
+</script>
+<script>
+// Get the Sidebar
+var mySidebar = document.getElementById("mySidebar");
+
+// Get the DIV with overlay effect
+var overlayBg = document.getElementById("myOverlay");
+
+// Toggle between showing and hiding the sidebar, and add overlay effect
+function w3_open() {
+    if (mySidebar.style.display === 'block') {
+        mySidebar.style.display = 'none';
+        overlayBg.style.display = "none";
+    } else {
+        mySidebar.style.display = 'block';
+        overlayBg.style.display = "block";
+    }
+}
+
+// Close the sidebar with the close button
+function w3_close() {
+    mySidebar.style.display = "none";
+    overlayBg.style.display = "none";
+}
+</script>
+
+</body>
+</html>

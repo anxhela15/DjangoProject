@@ -1,0 +1,11 @@
+{% extends 'accounts/base.html'%}
+{% block content %}
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+<form action="" method="post">
+    <p>Are you sure you want to send a deployer request to this user?</p>
+       <a href="confirm_request/" class="btn btn-primary"> Confirm
+        </a>       
+        <button onclick="window.history.back();" class="btn btn-default" type="button">Cancel</button>
+</form>
+{% endblock %}

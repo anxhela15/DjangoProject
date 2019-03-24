@@ -1,0 +1,36 @@
+{% extends 'accounts/base.html' %}
+{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Add icon library -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<p>
+<h1>{{ user.username }}  <div class="btn float-right mt-0">
+<form action="/createproject/"><button>New Project<i class="fa fa-edit"></i> </button></form></h1>
+<ul>
+{% for project in user.project_set.all %}
+{% if project.project_name == project1.project_name and project.updated == False %}
+        <a href="/home/{{ project.id }}/" class="list-group-item list-group-item-action">{{project.project_name}}  - {% if project.deployed == True %}
+ deployed
+ {% else %}
+ not deployed	
+ {% endif %}
+ <div class="btn-group float-right mt-2">
+ 
+
+ <form action="/home/{{project.id}}/editproject/"><button><i class="fa fa-edit"></i> </button></form>
+<form action="/home/{{project.id}}/delete/"><button><i class="fa fa-trash"></i> </button></form>
+
+</div></a> {% endif %}
+
+{% endfor %}
+</ul>
+</p>
+
+<p></p>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends 'accounts/base.html' %}
+{% load static %}
+
+{% block content %}
+<p></p>
+<html>
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+  <head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <script type="text/javascript">
+      google.charts.load('current', {'packages':['timeline']});
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var container = document.getElementById('timeline');
+        var chart = new google.visualization.Timeline(container);
+        var dataTable = new google.visualization.DataTable();
+        var json1 = unescape("{{json1 | safe | escapejs}}");
+        var taskslist = JSON.parse(json1);
+        var jsoninit = unescape("{{jsoninit | safe | escapejs}}");
+        var initdate = JSON.parse(jsoninit);
+        var jsonfinish = unescape("{{jsonfinish | safe | escapejs}}");
+        var finishdate = JSON.parse(jsonfinish);
+        var jsondep = unescape("{{jsondep | safe | escapejs}}");
+        var deployer = JSON.parse(jsondep);
+        dataTable.addColumn({ type: 'string', id: 'taskslist' });
+        dataTable.addColumn({ type: 'date', id: 'Start' });
+        dataTable.addColumn({ type: 'date', id: 'End' });
+        for (var task in taskslist){
+        	dataTable.addRows([
+        		[ taskslist[task],new Date(initdate[task]),  new Date(finishdate[task]) ]]);
+
+
+        }
+
+
+        chart.draw(dataTable);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="timeline" style="height: 500px;"></div>
+  </body>
+</html>
+{% endblock %}

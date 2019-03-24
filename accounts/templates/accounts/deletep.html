@@ -1,0 +1,10 @@
+{% extends 'accounts/base.html' %}
+
+{% block content %}
+<form action="" method="post">
+    <p>Are you sure you want to delete the item?</p>
+       <a href="/home/{{project.id}}/delete/deleteproject/" class="btn btn-primary"> Confirm
+        </a>       
+        <button onclick="window.history.back();" class="btn btn-default" type="button">Cancel</button>
+</form>
+{% endblock %}

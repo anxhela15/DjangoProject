@@ -1,0 +1,51 @@
+{% extends 'accounts/base.html' %}
+{% block content %}
+{% load app_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Add icon library -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+<p>
+<ul>
+
+{% if request.user|has_group:"Deployers"%}
+{% if task %}
+<h2>New Tasks </h2>
+
+		{% for i in task %}
+  <a href="/home/{{ i.id }}/" class="list-group-item list-group-item-action">{{i}}
+ <div class="btn-group float-right mt-2">
+
+</div></a>
+		{% endfor %}
+		{% endif %}
+		<p></p>
+		{% if projects %}
+<h2>New suggestions</h2>
+{% for project in projects %}
+       <a href="/home/{{ project.id }}/" class="list-group-item list-group-item-action">{{project}}
+ <div class="btn-group float-right mt-2">
+
+</div></a>
+{% endfor %}
+{% endif %}
+{% else %}
+{% if user.profile.notification == True %}
+	<form action="" method="post">
+    <p>You have a deployer request! Would you like to confirm it?</p>
+       <a href="deployer/" class="btn btn-primary"> Confirm
+        </a>       
+        <button onclick="window.history.back();" class="btn btn-default" type="button">Cancel</button>
+</form>
+{% endif %}
+{% endif %}
+</ul>
+</p>
+
+<p></p>
+{% endblock %}
+

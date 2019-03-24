@@ -1,0 +1,58 @@
+{% load static %}
+
+{% block content %}
+<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+<!------ Include the above in your HEAD tag ---------->
+
+      <link rel="stylesheet" type="text/css" href="{% static 'accounts/login.css' %}">
+
+<html>
+  <head>
+
+  <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<!------ Include the above in your HEAD tag ---------->
+  </head>
+<body id="LoginForm">
+<div class="container">
+<h1 class="form-heading"></h1>
+<div class="login-form">
+<div class="main-div">
+    <div class="panel">
+   <h2>Login</h2>
+   <p>Please enter your username and password</p>
+   </div>
+    <form method="post" action="{% url 'login' %}">
+		{% csrf_token %}
+
+        <div class="form-group">
+
+            <input type="username" class="form-control" placeholder="Username" id={{form.username}} 
+
+        </div>
+
+        <div class="form-group">
+
+            <input type="password" class="form-control" placeholder="Password" id={{form.password}} 
+
+        </div>
+        <div class="forgot">
+       <p> <a href="/accounts/signup/">Sign up</a></p>
+
+</div>
+        <button type="submit" class="btn btn-primary">Login</button> 
+        <input type="hidden" name="next",value="{{next}}"> 
+
+    </form>
+    </div>
+</div></div></div>
+
+
+</body>
+</html>
+
+
+{% endblock %}
